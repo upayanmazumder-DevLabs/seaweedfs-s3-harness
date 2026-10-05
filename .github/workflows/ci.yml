@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+      - run: gofmt -l . | tee /tmp/fmt.out && [ ! -s /tmp/fmt.out ]
+      - run: go vet ./...
+      - run: go build ./...
+      - run: go test ./internal/...
+
+  compose:
+    needs: lint-and-unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+      - run: ./scripts/gen-secrets.sh .secrets
+      - run: docker compose -f deploy/compose/docker-compose.yaml up -d --wait
+      - name: Run integration suite against SeaweedFS 4.48
+        run: |
+          set -a
+          source .secrets/compose.env
+          set +a
+          go test -count=1 -v ./tests/... 2>&1 | tee test-output.log
+      - name: Collect SeaweedFS logs on failure
+        if: failure()
+        run: docker compose -f deploy/compose/docker-compose.yaml logs > seaweedfs.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compose-test-results
+          path: |
+            test-output.log
+            seaweedfs.log
+          if-no-files-found: ignore
+      - run: docker compose -f deploy/compose/docker-compose.yaml down -v
+        if: always()

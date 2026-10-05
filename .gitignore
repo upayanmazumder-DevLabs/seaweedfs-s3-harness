@@ -1,0 +1,19 @@
+\# Secrets and generated credentials - NEVER commit.
+.secrets/
+*.env
+!*.env.example
+
+\# Build artifacts
+/bin/
+/dist/
+*.test
+
+\# Diagnostics bundles collected from test runs
+/artifacts/
+
+\# Go
+/vendor/
+
+\# Editor/OS
+.DS_Store
+*.swp

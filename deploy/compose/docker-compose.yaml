@@ -1,0 +1,29 @@
+name: seaweedfs-s3-harness
+
+services:
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.48
+    command: >
+      server
+      -dir=/data
+      -master -volume -filer -s3
+      -ip=seaweedfs
+      -master.volumeSizeLimitMB=256
+      -volume.max=40
+      -s3.config=/etc/sw/seaweedfs_s3_config.json
+    ports:
+      - "127.0.0.1:8333:8333" # S3 gateway
+      - "127.0.0.1:9333:9333" # master UI (debugging only)
+      - "127.0.0.1:8888:8888" # filer UI (debugging only)
+    volumes:
+      - swfs-data:/data
+      - ../../.secrets/seaweedfs_s3_config.json:/etc/sw/seaweedfs_s3_config.json:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8333/status"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+
+volumes:
+  swfs-data:
